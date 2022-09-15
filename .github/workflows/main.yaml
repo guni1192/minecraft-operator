@@ -29,3 +29,4 @@ jobs:
       - name: show kubernetes info
         run: kubectl version -o yaml
       - run: make install
+      - run: make deploy
