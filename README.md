@@ -1,6 +1,6 @@
 # Minecraft Operator
 
-## Getting StartedA
+## Getting Started
 
 ### Requirements
 
