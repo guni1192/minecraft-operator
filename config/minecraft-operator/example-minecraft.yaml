@@ -1,0 +1,6 @@
+apiVersion: guni.dev/v1
+kind: Minecraft
+metadata:
+  name: guni-world
+spec:
+  name: guni-world

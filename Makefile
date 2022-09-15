@@ -13,6 +13,9 @@ run:
 install:
 	cargo run -- crd-gen | kubectl apply -f -
 
+deploy:
+	kubectl apply -f config/minecraft-operator/
+
 create-cluster:
 	kind create cluster --name $(CLUSTER_NAME)
 	kubectl cluster-info --context kind-$(CLUSTER_NAME)
