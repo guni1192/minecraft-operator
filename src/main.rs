@@ -1,20 +1,27 @@
-use k8s_openapi::api::core::v1::Pod;
-use kube::api::{Api, ListParams};
-use kube::client::Client;
-use kube::ResourceExt;
-// use serde_json::json;
+use clap::Parser;
+
+/// Minecraft Operator
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    #[clap(subcommand)]
+    mode: Mode,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum Mode {
+    Run,
+    CrdGen,
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = Client::try_default().await?;
-    let pods: Api<Pod> = Api::default_namespaced(client);
+    let args = Args::parse();
 
-    let list_params = ListParams::default();
-    let pods = pods.list(&list_params).await?;
-
-    for pod in pods {
-        println!("pod/{}", pod.name_any());
-    }
+    match args.mode {
+        Mode::Run => minecraft_operator::operator::run().expect("failed to run operator"),
+        Mode::CrdGen => minecraft_operator::crd::generate_crds().expect("failed to generate crds"),
+    };
 
     Ok(())
 }
