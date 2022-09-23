@@ -16,6 +16,9 @@ install:
 deploy:
 	kubectl apply -f config/minecraft-operator/
 
+delete:
+	kubectl delete -f config/minecraft-operator/
+
 create-cluster:
 	kind create cluster --name $(CLUSTER_NAME)
 	kubectl cluster-info --context kind-$(CLUSTER_NAME)
