@@ -9,24 +9,54 @@ on:
       - main
 
 jobs:
-  check-crd:
+  clippy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          components: clippy
+          override: true
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: sudo apt-get update && sudo apt-get install -y make curl
+
+      - uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+
+  check-crd:
+    runs-on: ubuntu-latest
+    needs: [clippy]
+    steps:
+      - uses: actions/checkout@v3
+
       - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
+
       - uses: Swatinem/rust-cache@v2
+
       - run: sudo apt-get update && sudo apt-get install -y make curl
+
       - name: Install kubectl
         run: |
           curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.25.0/bin/linux/amd64/kubectl
           sudo install ./kubectl /usr/local/bin/
           rm kubectl
+
       - run: make create-cluster
+
       - name: show kubernetes info
         run: kubectl version -o yaml
+
       - run: make install
+
       - run: make deploy
