@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minecraft-operator
+  labels:
+    app: minecraft-operator
+  namespace: minecraft-admin-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minecraft-operator
+  template:
+    metadata:
+      labels:
+        app: minecraft-operator
+    spec:
+      serviceAccount: minecraft-operator
+      serviceAccountName: minecraft-operator
+      containers:
+        - name: minecraft-operator
+          image: guni1192/minecraft-operator:dev
+          imagePullPolicy: IfNotPresent
+          command:
+            - /minecraft-operator
+          args:
+            - run
+          ports:
+            - containerPort: 8080
