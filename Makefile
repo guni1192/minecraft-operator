@@ -1,8 +1,12 @@
 IMAGE=guni1192/minecraft-operator:dev
 CLUSTER_NAME=k8s-minecraft
+DOCKER_DEFAULT_PLATFORM=linux/arm64
+DOCKERFILE=docker/arm64/Dockerfile
 
 build:
-	DOCKER_BUILDKIT=1 docker image build -t $(IMAGE) .
+	DOCKER_BUILDKIT=1 DOCKER_DEFAULT_FLATFORM=$(DOCKER_DEFAULT_PLATFORM) \
+		docker image build -f $(DOCKERFILE) \
+		-t $(IMAGE) .
 	kind load docker-image --name $(CLUSTER_NAME) $(IMAGE)
 
 run:
@@ -18,7 +22,7 @@ deploy:
 	kustomize build config/base | kubectl apply --server-side -f -
 
 delete:
-	kubectl delete -f config/minecraft-operator/
+	kustomize build config/base | kubectl delete -f -
 
 create-cluster:
 	kind create cluster --name $(CLUSTER_NAME)
