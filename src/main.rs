@@ -19,8 +19,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     match args.mode {
-        Mode::Run => minecraft_operator::operator::run().expect("failed to run operator"),
-        Mode::CrdGen => minecraft_operator::crd::generate_crds().expect("failed to generate crds"),
+        Mode::Run => minecraft_operator::server::run()
+            .await
+            .expect("failed to run operator"),
+        Mode::CrdGen => {
+            minecraft_operator::minecraft::generate_crds().expect("failed to generate crds")
+        }
     };
 
     Ok(())

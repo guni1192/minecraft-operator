@@ -3,4 +3,7 @@ kind: Minecraft
 metadata:
   name: guni-world
 spec:
-  name: guni-world
+  image: itzg/minecraft-server:java17-graalvm-ce
+  server:
+    motd: guni-world
+    gamemode: Survival

@@ -35,13 +35,15 @@ RUN rustup target add x86_64-unknown-linux-musl
 
 RUN cargo init /minecraft-operator
 WORKDIR /minecraft-operator
+
+COPY Cargo.toml Cargo.toml
+COPY Cargo.lock Cargo.lock
+
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/minecraft-operator/target \
     cargo build --release --target=x86_64-unknown-linux-musl && \
     rm -f target/x86_64-unknown-linux-musl/release/minecraft-operator
 
-COPY Cargo.toml Cargo.toml
-COPY Cargo.lock Cargo.lock
 COPY src/* src/
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
