@@ -1,8 +1,9 @@
-IMAGE=guni1192/minecraft-operator:static
+IMAGE=guni1192/minecraft-operator:dev
 CLUSTER_NAME=k8s-minecraft
 
 build:
 	DOCKER_BUILDKIT=1 docker image build -t $(IMAGE) .
+	kind load docker-image --name $(CLUSTER_NAME) $(IMAGE)
 
 run:
 	docker run --rm --net=host \
@@ -14,7 +15,7 @@ install:
 	cargo run -- crd-gen | kubectl apply -f -
 
 deploy:
-	kubectl apply -f config/minecraft-operator/
+	kustomize build config/base | kubectl apply --server-side -f -
 
 delete:
 	kubectl delete -f config/minecraft-operator/
