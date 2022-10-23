@@ -36,27 +36,34 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - uses: aquaproj/aqua-installer@v1.1.2
+        with:
+          aqua_version: v1.21.0
+
       - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
           override: true
 
+      - name: Install Kubernetes CLI tools
+        run: aqua install
+
       - uses: Swatinem/rust-cache@v2
 
       - run: sudo apt-get update && sudo apt-get install -y make curl
 
-      - name: Install kubectl
-        run: |
-          curl -LO https://storage.googleapis.com/kubernetes-release/release/v1.25.0/bin/linux/amd64/kubectl
-          sudo install ./kubectl /usr/local/bin/
-          rm kubectl
+      - name: Create kind cluster
+        run: make create-cluster
 
-      - run: make create-cluster
+      - name: Build container image and load to kind cluster
+        run: make build
 
       - name: show kubernetes info
         run: kubectl version -o yaml
 
-      - run: make install
+      - name: Install minecraft-operator CRDs
+        run: make install
 
-      - run: make deploy
+      - name: Deploy minecraft-operator and example CR
+        run: make deploy
