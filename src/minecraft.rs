@@ -87,7 +87,7 @@ impl Minecraft {
         let labels = self.labels();
 
         let meta = ObjectMeta {
-            name: Some(name.to_string()),
+            name: Some(name),
             labels: Some(labels.clone()),
             ..Default::default()
         };
@@ -117,7 +117,7 @@ impl Minecraft {
             replicas: Some(1),
             selector: LabelSelector {
                 match_expressions: None,
-                match_labels: Some(labels.clone()),
+                match_labels: Some(labels),
             },
             template: PodTemplateSpec {
                 metadata: Some(meta.clone()),
