@@ -100,13 +100,22 @@ impl Minecraft {
                     value: Some("TRUE".to_string()),
                     value_from: None,
                 }]),
-                ports: Some(vec![ContainerPort {
-                    name: Some("minecraft".to_string()),
-                    container_port: 25565,
-                    protocol: Some("TCP".to_string()),
-                    host_ip: None,
-                    host_port: None,
-                }]),
+                ports: Some(vec![
+                    ContainerPort {
+                        name: Some("minecraft".to_string()),
+                        container_port: 25565,
+                        protocol: Some("TCP".to_string()),
+                        host_ip: None,
+                        host_port: Some(25565),
+                    },
+                    ContainerPort {
+                        name: Some("minecraft-udp".to_string()),
+                        container_port: 25565,
+                        protocol: Some("UDP".to_string()),
+                        host_ip: None,
+                        host_port: Some(25565),
+                    },
+                ]),
                 name: "minecraft-server".to_string(),
                 ..Default::default()
             }],
