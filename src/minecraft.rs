@@ -15,7 +15,7 @@ use crate::Result;
 
 static CONTROLLER_NAME: &str = "minecraft-operator";
 
-#[derive(CustomResource, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[derive(CustomResource, Serialize, Deserialize, Debug, PartialEq, Eq, Clone, JsonSchema)]
 #[kube(
     group = "guni.dev",
     version = "v1",
@@ -29,7 +29,7 @@ pub struct MinecraftSpec {
     server: Server,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, JsonSchema)]
 pub struct Server {
     /// motd is world name
     motd: String,
@@ -41,7 +41,7 @@ pub struct Server {
     gamemode: Gamemode,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, JsonSchema)]
 pub enum Gamemode {
     Survival = 0,
     Crative = 1,
@@ -78,7 +78,7 @@ impl Minecraft {
 
     pub fn labels(&self) -> BTreeMap<String, String> {
         let mut labels = BTreeMap::new();
-        labels.insert("app".to_string(), "minecraft".to_string());
+        labels.insert("app.kubernetes.io/name".to_string(), "minecraft".to_string());
         labels
     }
 
@@ -138,6 +138,6 @@ impl Minecraft {
 
 pub fn generate_crds() -> anyhow::Result<()> {
     let crd = serde_yaml::to_string(&Minecraft::crd())?;
-    println!("{}", crd);
+    println!("{crd}");
     Ok(())
 }
