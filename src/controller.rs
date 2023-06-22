@@ -23,7 +23,6 @@ use tracing::{info, instrument, warn};
 
 static MINECRAFT_FINALIZER: &str = "minecraft.guni.dev";
 
-// Context for our reconciler
 #[derive(Clone)]
 pub struct Context {
     /// Kubernetes client
@@ -35,31 +34,13 @@ pub struct Context {
 }
 
 impl Minecraft {
-    // Reconcile (for non-finalizer related changes)
     async fn reconcile(&self, ctx: Arc<Context>) -> Result<Action, kube::Error> {
-        // let client = ctx.client.clone();
         ctx.diagnostics.write().await.last_event = Utc::now();
-        // let reporter = ctx.diagnostics.read().await.reporter.clone();
-        // let recorder = Recorder::new(client.clone(), reporter, self.object_ref(&()));
-
-        // let minecraft_api: Api<Minecraft> = Api::namespaced(ctx.client.clone(), &ns);
-
         self.sync(ctx).await?;
 
-        // let ps = PatchParams::apply("minecraft.guni.dev");
-
-        // always overwrite status object with what we saw
-        // let new_status = Patch::Apply(serde_json::json!({
-        //     "apiVersion": "guni.dev/v1",
-        //     "kind": "Minecraft",
-        // }));
-        // let _o = minecraft_api.patch_status(&name, &ps, &new_status).await?;
-
-        // If no events were received, check back every 5 minutes
         Ok(Action::requeue(Duration::from_secs(5 * 60)))
     }
 
-    // Reconcile with finalize cleanup (the object was deleted)
     async fn cleanup(&self, ctx: Arc<Context>) -> Result<Action, kube::Error> {
         let client = ctx.client.clone();
         ctx.diagnostics.write().await.last_event = Utc::now();
