@@ -208,6 +208,7 @@ impl Minecraft {
             update_strategy: None,
             pod_management_policy: None,
             revision_history_limit: None,
+            ..Default::default()
         };
 
         StatefulSet {
