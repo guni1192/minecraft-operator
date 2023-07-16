@@ -53,7 +53,7 @@ impl Minecraft {
     pub async fn sync(&self, ctx: Arc<Context>) -> Result<(), kube::Error> {
         let name = self.name_any();
         let ns = self.namespace().unwrap();
-        let dep = self.make_deployment()?;
+        let dep = self.make_deployment();
 
         let deployment_api: Api<Deployment> = Api::namespaced(ctx.client.clone(), &ns);
 
@@ -76,15 +76,41 @@ impl Minecraft {
         Ok(())
     }
 
-    pub fn labels(&self) -> BTreeMap<String, String> {
+    pub fn default_labels(&self) -> BTreeMap<String, String> {
         let mut labels = BTreeMap::new();
         labels.insert("app".to_string(), "minecraft".to_string());
         labels
     }
 
-    pub fn make_deployment(&self) -> Result<Deployment, kube::Error> {
+    pub fn default_ports(&self) -> Vec<ContainerPort> {
+        vec![
+            ContainerPort {
+                name: Some("minecraft-tcp".to_string()),
+                container_port: 25565,
+                protocol: Some("TCP".to_string()),
+                host_ip: None,
+                host_port: None,
+            },
+            ContainerPort {
+                name: Some("minecraft-udp".to_string()),
+                container_port: 25565,
+                protocol: Some("UDP".to_string()),
+                host_ip: None,
+                host_port: None,
+            },
+            ContainerPort {
+                name: Some("minecraft-rcon".to_string()),
+                container_port: 25575,
+                protocol: Some("UDP".to_string()),
+                host_ip: None,
+                host_port: None,
+            },
+        ]
+    }
+
+    pub fn make_deployment(&self) -> Deployment {
         let name = self.name_any();
-        let labels = self.labels();
+        let labels = self.default_labels();
 
         let meta = ObjectMeta {
             name: Some(name),
@@ -100,13 +126,7 @@ impl Minecraft {
                     value: Some("TRUE".to_string()),
                     value_from: None,
                 }]),
-                ports: Some(vec![ContainerPort {
-                    name: Some("minecraft".to_string()),
-                    container_port: 25565,
-                    protocol: Some("TCP".to_string()),
-                    host_ip: None,
-                    host_port: None,
-                }]),
+                ports: Some(self.default_ports()),
                 name: "minecraft-server".to_string(),
                 ..Default::default()
             }],
@@ -126,18 +146,16 @@ impl Minecraft {
             ..Default::default()
         };
 
-        let deployment = Deployment {
+        Deployment {
             metadata: meta,
             spec: Some(deployment_spec),
             ..Default::default()
-        };
-
-        Ok(deployment)
+        }
     }
 }
 
 pub fn generate_crds() -> anyhow::Result<()> {
     let crd = serde_yaml::to_string(&Minecraft::crd())?;
-    println!("{}", crd);
+    println!("{crd}");
     Ok(())
 }
