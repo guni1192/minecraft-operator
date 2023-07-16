@@ -11,8 +11,8 @@ run:
 		-e KUBECONFIG=/root/.kube/config \
 		$(IMAGE)
 
-install:
-	cargo run -- crd-gen | kubectl apply -f -
+install: build
+	docker container run --rm guni1192/minecraft-operator:dev crd-gen | kubectl apply -f -
 
 deploy:
 	kustomize build config/base | kubectl apply --server-side -f -
