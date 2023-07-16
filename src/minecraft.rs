@@ -1,5 +1,9 @@
-use k8s_openapi::api::apps::v1::{Deployment, DeploymentSpec};
-use k8s_openapi::api::core::v1::{Container, ContainerPort, EnvVar, PodSpec, PodTemplateSpec};
+use k8s_openapi::api::apps::v1::{StatefulSet, StatefulSetSpec};
+use k8s_openapi::api::core::v1::{
+    Container, ContainerPort, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec, PodSpec,
+    PodTemplateSpec, ResourceRequirements, VolumeMount,
+};
+use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
 use kube::api::{Api, DeleteParams, Patch, PatchParams};
 use kube::core::ObjectMeta;
@@ -16,6 +20,7 @@ use crate::Result;
 static CONTROLLER_NAME: &str = "minecraft-operator";
 
 #[derive(CustomResource, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 #[kube(
     group = "guni.dev",
     version = "v1",
@@ -27,9 +32,11 @@ static CONTROLLER_NAME: &str = "minecraft-operator";
 pub struct MinecraftSpec {
     image: String,
     server: Server,
+    storage: MinecraftStorage,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
 pub struct Server {
     /// motd is world name
     motd: String,
@@ -49,17 +56,29 @@ pub enum Gamemode {
     Spectator = 3,
 }
 
+/// Data Storage for Minecraft Server
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+struct MinecraftStorage {
+    /// storage size should be quantitity
+    size: String,
+    /// data volume mount target path
+    mount_path: String,
+    /// CSI storage class name
+    storage_class_name: String,
+}
+
 impl Minecraft {
     pub async fn sync(&self, ctx: Arc<Context>) -> Result<(), kube::Error> {
         let name = self.name_any();
         let ns = self.namespace().unwrap();
-        let dep = self.make_deployment();
+        let statefulset = self.make_statefulset();
 
-        let deployment_api: Api<Deployment> = Api::namespaced(ctx.client.clone(), &ns);
+        let statefulset_api: Api<StatefulSet> = Api::namespaced(ctx.client.clone(), &ns);
 
         let ps = PatchParams::apply(CONTROLLER_NAME);
-        let patch = Patch::Apply(&dep);
-        deployment_api.patch(&name, &ps, &patch).await?;
+        let patch = Patch::Apply(&statefulset);
+        statefulset_api.patch(&name, &ps, &patch).await?;
 
         Ok(())
     }
@@ -68,10 +87,10 @@ impl Minecraft {
         let name = self.name_any();
         let ns = self.namespace().unwrap();
 
-        let deployment_api: Api<Deployment> = Api::namespaced(ctx.client.clone(), &ns);
+        let statefulset_api: Api<StatefulSet> = Api::namespaced(ctx.client.clone(), &ns);
 
         let dp = DeleteParams::default();
-        deployment_api.delete(&name, &dp).await?;
+        statefulset_api.delete(&name, &dp).await?;
 
         Ok(())
     }
@@ -108,15 +127,47 @@ impl Minecraft {
         ]
     }
 
-    pub fn make_deployment(&self) -> Deployment {
-        let name = self.name_any();
-        let labels = self.default_labels();
+    pub fn volume_claim(&self, name: &str) -> Vec<PersistentVolumeClaim> {
+        let mut requests = BTreeMap::new();
+        requests.insert(
+            "storage".to_string(),
+            Quantity(self.spec.storage.size.clone()),
+        );
 
-        let meta = ObjectMeta {
-            name: Some(name),
-            labels: Some(labels.clone()),
+        let storage_resources = ResourceRequirements {
+            requests: Some(requests),
             ..Default::default()
         };
+
+        let pvc = PersistentVolumeClaim {
+            metadata: ObjectMeta {
+                name: Some(format!("{}-data", name.clone())),
+                labels: Some(self.default_labels()),
+                ..Default::default()
+            },
+            spec: Some(PersistentVolumeClaimSpec {
+                access_modes: Some(vec!["ReadWriteOnce".to_string()]),
+                storage_class_name: Some(self.spec.storage.storage_class_name.clone()),
+                resources: Some(storage_resources),
+                ..Default::default()
+            }),
+            status: None,
+        };
+
+        vec![pvc]
+    }
+
+    pub fn default_metadata(&self, name: &str) -> ObjectMeta {
+        ObjectMeta {
+            name: Some(name.to_string().clone()),
+            labels: Some(self.default_labels()),
+            ..Default::default()
+        }
+    }
+
+    pub fn make_statefulset(&self) -> StatefulSet {
+        let name = self.name_any();
+        let labels = self.default_labels();
 
         let pod_spec = PodSpec {
             containers: vec![Container {
@@ -128,27 +179,40 @@ impl Minecraft {
                 }]),
                 ports: Some(self.default_ports()),
                 name: "minecraft-server".to_string(),
+                volume_mounts: Some(vec![VolumeMount {
+                    mount_path: self.spec.storage.mount_path.clone(),
+                    name: format!("{}-data", name.clone()),
+                    read_only: Some(false),
+                    ..Default::default()
+                }]),
+
                 ..Default::default()
             }],
             ..Default::default()
         };
 
-        let deployment_spec = DeploymentSpec {
+        let statefulset_spec = StatefulSetSpec {
             replicas: Some(1),
+            service_name: format!("minecraft-{}", name.clone()),
             selector: LabelSelector {
                 match_expressions: None,
                 match_labels: Some(labels),
             },
             template: PodTemplateSpec {
-                metadata: Some(meta.clone()),
+                metadata: Some(self.default_metadata(&name)),
                 spec: Some(pod_spec),
             },
-            ..Default::default()
+            volume_claim_templates: Some(self.volume_claim(&name)),
+            persistent_volume_claim_retention_policy: None,
+            min_ready_seconds: None,
+            update_strategy: None,
+            pod_management_policy: None,
+            revision_history_limit: None,
         };
 
-        Deployment {
-            metadata: meta,
-            spec: Some(deployment_spec),
+        StatefulSet {
+            metadata: self.default_metadata(&name),
+            spec: Some(statefulset_spec),
             ..Default::default()
         }
     }

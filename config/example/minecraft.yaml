@@ -7,3 +7,7 @@ spec:
   server:
     motd: guni-world
     gamemode: Survival
+  storage:
+    size: "2Gi"
+    storageClassName: "standard"
+    mountPath: "/data"
