@@ -52,7 +52,7 @@ impl Minecraft {
         recorder
             .publish(Event {
                 type_: EventType::Normal,
-                reason: "DeleteDoc".into(),
+                reason: "DeleteMinecraft".into(),
                 note: Some(format!("Delete `{}`", self.name_any())),
                 action: "Reconciling".into(),
                 secondary: None,
