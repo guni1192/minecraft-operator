@@ -45,11 +45,12 @@ pub struct Server {
     /// 1 Creative
     /// 2 Adventure
     /// 3 Spectator
-    gamemode: Gamemode,
+    game_mode: GameMode,
+    env: Option<Vec<EnvVar>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
-pub enum Gamemode {
+pub enum GameMode {
     Survival = 0,
     Crative = 1,
     Adventure = 2,
@@ -172,11 +173,7 @@ impl Minecraft {
         let pod_spec = PodSpec {
             containers: vec![Container {
                 image: Some(self.spec.image.clone()),
-                env: Some(vec![EnvVar {
-                    name: "EULA".to_string(),
-                    value: Some("TRUE".to_string()),
-                    value_from: None,
-                }]),
+                env: self.spec.server.env.clone(),
                 ports: Some(self.default_ports()),
                 name: "minecraft-server".to_string(),
                 volume_mounts: Some(vec![VolumeMount {
@@ -208,7 +205,7 @@ impl Minecraft {
             update_strategy: None,
             pod_management_policy: None,
             revision_history_limit: None,
-            ..Default::default()
+            ordinals: None,
         };
 
         StatefulSet {
