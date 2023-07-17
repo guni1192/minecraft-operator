@@ -4,6 +4,7 @@ use crate::minecraft::Minecraft;
 use crate::{Error, Result};
 use chrono::{DateTime, Utc};
 use futures::{future::BoxFuture, FutureExt, StreamExt};
+use kube::runtime::watcher::Config;
 use kube::{
     api::{Api, ListParams, ResourceExt},
     client::Client,
@@ -89,7 +90,7 @@ impl Manager {
                 "is the crd installed? please run: minecraft-operator crd-gen | kubectl apply -f -",
             );
 
-        let controller = Controller::new(minecraft_api, ListParams::default())
+        let controller = Controller::new(minecraft_api, Config::default())
             .run(reconcile, error_policy, context)
             .filter_map(|x| async move { std::result::Result::ok(x) })
             .for_each(|_| futures::future::ready(()))
@@ -134,8 +135,12 @@ impl Diagnostics {
     }
 }
 
-fn error_policy(error: &Error, _ctx: Arc<Context>) -> Action {
-    warn!("reconcile failed: {:?}", error);
+fn error_policy(mc: Arc<Minecraft>, error: &Error, _ctx: Arc<Context>) -> Action {
+    let name = mc.name_any();
+    warn!(
+        "reconcile failed minecraft.guni.dev resource: name: {}, Error: {:?}",
+        name, error
+    );
     Action::requeue(Duration::from_secs(5 * 60))
 }
 
