@@ -7,8 +7,8 @@ use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
 use kube::api::{Api, DeleteParams, Patch, PatchParams};
 use kube::core::ObjectMeta;
-use kube::ResourceExt;
 use kube::{CustomResource, CustomResourceExt};
+use kube::{Resource, ResourceExt};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -142,7 +142,7 @@ impl Minecraft {
 
         let pvc = PersistentVolumeClaim {
             metadata: ObjectMeta {
-                name: Some(format!("{}-data", name.clone())),
+                name: Some(format!("{name}-data")),
                 labels: Some(self.default_labels()),
                 ..Default::default()
             },
@@ -159,9 +159,11 @@ impl Minecraft {
     }
 
     pub fn default_metadata(&self, name: &str) -> ObjectMeta {
+        let owner_ref = self.controller_owner_ref(&()).unwrap();
         ObjectMeta {
-            name: Some(name.to_string().clone()),
+            name: Some(name.to_string()),
             labels: Some(self.default_labels()),
+            owner_references: Some(vec![owner_ref]),
             ..Default::default()
         }
     }
@@ -178,7 +180,7 @@ impl Minecraft {
                 name: "minecraft-server".to_string(),
                 volume_mounts: Some(vec![VolumeMount {
                     mount_path: self.spec.storage.mount_path.clone(),
-                    name: format!("{}-data", name.clone()),
+                    name: format!("{name}-data"),
                     read_only: Some(false),
                     ..Default::default()
                 }]),
@@ -190,7 +192,7 @@ impl Minecraft {
 
         let statefulset_spec = StatefulSetSpec {
             replicas: Some(1),
-            service_name: format!("minecraft-{}", name.clone()),
+            service_name: format!("minecraft-{name}"),
             selector: LabelSelector {
                 match_expressions: None,
                 match_labels: Some(labels),
