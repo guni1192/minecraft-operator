@@ -1,4 +1,4 @@
-ARG RUST_VERSION=1.68
+ARG RUST_VERSION=1.77
 
 FROM rust:${RUST_VERSION}-slim-bullseye as builder
 
