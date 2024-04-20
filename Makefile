@@ -15,7 +15,7 @@ install: build
 	docker container run --rm guni1192/minecraft-operator:dev crd-gen | kubectl apply -f -
 
 deploy: build
-	kustomize build config/base | kubectl apply --server-side --force-conflicts -f -
+	kustomize build config/base | kubectl apply --server-side -f -
 	kubectl rollout -n minecraft-system restart deployment minecraft-operator
 
 delete:
