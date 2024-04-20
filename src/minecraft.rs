@@ -82,13 +82,13 @@ impl Minecraft {
         let ps = PatchParams::apply(CONTROLLER_NAME);
 
         // StatefulSet
-        let statefulset = self.make_statefulset();
+        let statefulset = self.build_statefulset();
         let statefulset_api: Api<StatefulSet> = Api::namespaced(ctx.client.clone(), &ns);
         let patch = Patch::Apply(&statefulset);
         statefulset_api.patch(&name, &ps, &patch).await?;
 
         // Service
-        let service = self.make_service();
+        let service = self.build_service();
         let service_api: Api<Service> = Api::namespaced(ctx.client.clone(), &ns);
         let patch = Patch::Apply(&service);
         service_api.patch(&name, &ps, &patch).await?;
@@ -231,7 +231,7 @@ impl Minecraft {
         }
     }
 
-    pub fn make_statefulset(&self) -> StatefulSet {
+    pub fn build_statefulset(&self) -> StatefulSet {
         let name = self.name();
         let labels = self.default_labels();
 
@@ -280,7 +280,7 @@ impl Minecraft {
         }
     }
 
-    pub fn make_service(&self) -> Service {
+    pub fn build_service(&self) -> Service {
         let name = self.name();
         let type_ = if self.spec.enable_node_port{
             "NodePort"
