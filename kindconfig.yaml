@@ -5,3 +5,13 @@ nodes:
     image: kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245
   - role: worker
     image: kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245
+    extraPortMappings:
+      - containerPort: 25565
+        hostPort: 25565
+        protocol: TCP
+      - containerPort: 25565
+        hostPort: 25565
+        protocol: UDP
+      - containerPort: 25575
+        hostPort: 25575
+        protocol: UDP
