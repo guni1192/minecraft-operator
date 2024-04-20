@@ -1,10 +1,11 @@
 use k8s_openapi::api::apps::v1::{StatefulSet, StatefulSetSpec};
 use k8s_openapi::api::core::v1::{
     Container, ContainerPort, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec, PodSpec,
-    PodTemplateSpec, VolumeMount, VolumeResourceRequirements,
+    PodTemplateSpec, Service, ServicePort, ServiceSpec, VolumeMount, VolumeResourceRequirements,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
+use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::{Api, DeleteParams, Patch, PatchParams};
 use kube::core::ObjectMeta;
 use kube::{CustomResource, CustomResourceExt};
@@ -73,13 +74,19 @@ impl Minecraft {
     pub async fn sync(&self, ctx: Arc<Context>) -> Result<(), kube::Error> {
         let name = self.name_any();
         let ns = self.namespace().unwrap();
-        let statefulset = self.make_statefulset();
-
-        let statefulset_api: Api<StatefulSet> = Api::namespaced(ctx.client.clone(), &ns);
-
         let ps = PatchParams::apply(CONTROLLER_NAME);
+
+        // StatefulSet
+        let statefulset = self.make_statefulset();
+        let statefulset_api: Api<StatefulSet> = Api::namespaced(ctx.client.clone(), &ns);
         let patch = Patch::Apply(&statefulset);
         statefulset_api.patch(&name, &ps, &patch).await?;
+
+        // Service
+        let service = self.make_service();
+        let service_api: Api<Service> = Api::namespaced(ctx.client.clone(), &ns);
+        let patch = Patch::Apply(&service);
+        service_api.patch(&name, &ps, &patch).await?;
 
         Ok(())
     }
@@ -128,6 +135,32 @@ impl Minecraft {
         ]
     }
 
+    pub fn default_service_ports(&self) -> Vec<ServicePort> {
+        vec![
+            ServicePort {
+                name: Some("minecraft-tcp".to_string()),
+                port: 25565,
+                protocol: Some("TCP".to_string()),
+                target_port: Some(IntOrString::Int(25565)),
+                ..Default::default()
+            },
+            ServicePort {
+                name: Some("minecraft-udp".to_string()),
+                port: 25565,
+                protocol: Some("UDP".to_string()),
+                target_port: Some(IntOrString::Int(25565)),
+                ..Default::default()
+            },
+            ServicePort {
+                name: Some("minecraft-rcon".to_string()),
+                port: 25575,
+                protocol: Some("UDP".to_string()),
+                target_port: Some(IntOrString::Int(25575)),
+                ..Default::default()
+            },
+        ]
+    }
+
     pub fn volume_claim(&self, name: &str) -> Vec<PersistentVolumeClaim> {
         let mut requests = BTreeMap::new();
         requests.insert(
@@ -169,7 +202,7 @@ impl Minecraft {
     }
 
     pub fn make_statefulset(&self) -> StatefulSet {
-        let name = self.name_any();
+        let name = format!("minecraft-{}", self.name_any());
         let labels = self.default_labels();
 
         let pod_spec = PodSpec {
@@ -213,6 +246,19 @@ impl Minecraft {
         StatefulSet {
             metadata: self.default_metadata(&name),
             spec: Some(statefulset_spec),
+            ..Default::default()
+        }
+    }
+
+    pub fn make_service(&self) -> Service {
+        let name = format!("minecraft-{}", self.name_any());
+        Service {
+            metadata: self.default_metadata(&name),
+            spec: Some(ServiceSpec {
+                selector: Some(self.default_labels()),
+                ports: Some(self.default_service_ports()),
+                ..Default::default()
+            }),
             ..Default::default()
         }
     }
