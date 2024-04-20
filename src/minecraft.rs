@@ -1,7 +1,7 @@
 use k8s_openapi::api::apps::v1::{StatefulSet, StatefulSetSpec};
 use k8s_openapi::api::core::v1::{
     Container, ContainerPort, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec, PodSpec,
-    PodTemplateSpec, ResourceRequirements, VolumeMount,
+    PodTemplateSpec, VolumeMount, VolumeResourceRequirements,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
@@ -135,7 +135,7 @@ impl Minecraft {
             Quantity(self.spec.storage.size.clone()),
         );
 
-        let storage_resources = ResourceRequirements {
+        let storage_resources = VolumeResourceRequirements {
             requests: Some(requests),
             ..Default::default()
         };
