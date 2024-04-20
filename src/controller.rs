@@ -48,7 +48,8 @@ impl Minecraft {
         let reporter = ctx.diagnostics.read().await.reporter.clone();
         let recorder = Recorder::new(client.clone(), reporter, self.object_ref(&()));
 
-        self.delete_deployment(ctx).await?;
+        self.delete_statefulset(ctx.clone()).await?;
+        self.delete_service(ctx).await?;
 
         recorder
             .publish(Event {

@@ -18,3 +18,5 @@ spec:
     size: "2Gi"
     storageClassName: "standard"
     mountPath: "/data"
+  # enable `type: NodePort`
+  enableNodePort: true
