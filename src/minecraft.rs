@@ -1,10 +1,11 @@
 use k8s_openapi::api::apps::v1::{StatefulSet, StatefulSetSpec};
 use k8s_openapi::api::core::v1::{
     Container, ContainerPort, EnvVar, PersistentVolumeClaim, PersistentVolumeClaimSpec, PodSpec,
-    PodTemplateSpec, VolumeMount, VolumeResourceRequirements,
+    PodTemplateSpec, Service, ServicePort, ServiceSpec, VolumeMount, VolumeResourceRequirements,
 };
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1::LabelSelector;
+use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::api::{Api, DeleteParams, Patch, PatchParams};
 use kube::core::ObjectMeta;
 use kube::{CustomResource, CustomResourceExt};
@@ -33,6 +34,7 @@ pub struct MinecraftSpec {
     image: String,
     server: Server,
     storage: MinecraftStorage,
+    enable_node_port: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
@@ -70,22 +72,32 @@ struct MinecraftStorage {
 }
 
 impl Minecraft {
+    fn name(&self) -> String {
+        format!("minecraft-{}", self.name_any())
+    }
+
     pub async fn sync(&self, ctx: Arc<Context>) -> Result<(), kube::Error> {
-        let name = self.name_any();
+        let name = self.name();
         let ns = self.namespace().unwrap();
-        let statefulset = self.make_statefulset();
-
-        let statefulset_api: Api<StatefulSet> = Api::namespaced(ctx.client.clone(), &ns);
-
         let ps = PatchParams::apply(CONTROLLER_NAME);
+
+        // StatefulSet
+        let statefulset = self.make_statefulset();
+        let statefulset_api: Api<StatefulSet> = Api::namespaced(ctx.client.clone(), &ns);
         let patch = Patch::Apply(&statefulset);
         statefulset_api.patch(&name, &ps, &patch).await?;
+
+        // Service
+        let service = self.make_service();
+        let service_api: Api<Service> = Api::namespaced(ctx.client.clone(), &ns);
+        let patch = Patch::Apply(&service);
+        service_api.patch(&name, &ps, &patch).await?;
 
         Ok(())
     }
 
-    pub async fn delete_deployment(&self, ctx: Arc<Context>) -> Result<(), kube::Error> {
-        let name = self.name_any();
+    pub async fn delete_statefulset(&self, ctx: Arc<Context>) -> Result<(), kube::Error> {
+        let name = self.name();
         let ns = self.namespace().unwrap();
 
         let statefulset_api: Api<StatefulSet> = Api::namespaced(ctx.client.clone(), &ns);
@@ -93,6 +105,16 @@ impl Minecraft {
         let dp = DeleteParams::default();
         statefulset_api.delete(&name, &dp).await?;
 
+        Ok(())
+    }
+
+    pub async fn delete_service(&self, ctx: Arc<Context>) -> Result<(), kube::Error> {
+        let name = self.name();
+        let ns = self.namespace().unwrap();
+
+        let service_api: Api<Service> = Api::namespaced(ctx.client.clone(), &ns);
+        let dp = DeleteParams::default();
+        service_api.delete(&name, &dp).await?;
         Ok(())
     }
 
@@ -124,6 +146,47 @@ impl Minecraft {
                 protocol: Some("UDP".to_string()),
                 host_ip: None,
                 host_port: None,
+            },
+        ]
+    }
+
+    pub fn default_service_ports(&self) -> Vec<ServicePort> {
+        vec![
+            ServicePort {
+                name: Some("minecraft-tcp".to_string()),
+                port: 25565,
+                protocol: Some("TCP".to_string()),
+                target_port: Some(IntOrString::Int(25565)),
+                node_port: if self.spec.enable_node_port{
+                    Some(30565)
+                } else {
+                    None
+                },
+                ..Default::default()
+            },
+            ServicePort {
+                name: Some("minecraft-udp".to_string()),
+                port: 25565,
+                protocol: Some("UDP".to_string()),
+                target_port: Some(IntOrString::Int(25565)),
+                node_port: if self.spec.enable_node_port{
+                    Some(30565)
+                } else {
+                    None
+                },
+                ..Default::default()
+            },
+            ServicePort {
+                name: Some("minecraft-rcon".to_string()),
+                port: 25575,
+                protocol: Some("UDP".to_string()),
+                target_port: Some(IntOrString::Int(25575)),
+                node_port: if self.spec.enable_node_port{
+                    Some(30575)
+                } else {
+                    None
+                },
+                ..Default::default()
             },
         ]
     }
@@ -169,7 +232,7 @@ impl Minecraft {
     }
 
     pub fn make_statefulset(&self) -> StatefulSet {
-        let name = self.name_any();
+        let name = self.name();
         let labels = self.default_labels();
 
         let pod_spec = PodSpec {
@@ -192,7 +255,7 @@ impl Minecraft {
 
         let statefulset_spec = StatefulSetSpec {
             replicas: Some(1),
-            service_name: format!("minecraft-{name}"),
+            service_name: name.clone(),
             selector: LabelSelector {
                 match_expressions: None,
                 match_labels: Some(labels),
@@ -213,6 +276,26 @@ impl Minecraft {
         StatefulSet {
             metadata: self.default_metadata(&name),
             spec: Some(statefulset_spec),
+            ..Default::default()
+        }
+    }
+
+    pub fn make_service(&self) -> Service {
+        let name = self.name();
+        let type_ = if self.spec.enable_node_port{
+            "NodePort"
+        } else {
+            "ClusterIP"
+        };
+
+        Service {
+            metadata: self.default_metadata(&name),
+            spec: Some(ServiceSpec {
+                selector: Some(self.default_labels()),
+                ports: Some(self.default_service_ports()),
+                type_: Some(type_.to_string()),
+                ..Default::default()
+            }),
             ..Default::default()
         }
     }
