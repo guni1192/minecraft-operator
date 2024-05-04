@@ -36,7 +36,7 @@ jobs:
 
       - uses: aquaproj/aqua-installer@v1.1.2
         with:
-          aqua_version: v2.27.1
+          aqua_version: v2.27.3
 
       - uses: dtolnay/rust-toolchain@stable
         with:
