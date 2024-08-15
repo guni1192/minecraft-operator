@@ -8,4 +8,4 @@ packages:
 - name: kubernetes/kubectl
   version: v1.29.4
 - name: kubernetes-sigs/kustomize@kustomize/v5.4.1
-- name: kubernetes-sigs/kind@v0.22.0
+- name: kubernetes-sigs/kind@v0.24.0
